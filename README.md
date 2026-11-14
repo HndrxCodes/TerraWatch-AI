@@ -1,4 +1,4 @@
-#TerraWatch AI
+# TerraWatch AI
 
 **Earth System Trend Detective for South Sumatra: rainfall trends, dry spells, and satellite-detected fire activity**
 
