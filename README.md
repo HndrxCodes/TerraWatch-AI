@@ -1,10 +1,10 @@
-# TerraWatch AI
+ # TerraWatch AI
 
 **Earth System Trend Detective for South Sumatra: rainfall trends, dry spells, and satellite-detected fire activity**
 
 NASA Space Apps Challenge 2026 (Jakarta) · Challenge: *Be An Earth System Trend Detective!* · Solo project
 
-> **Status:** hackathon prototype. Trend, anomaly, dry-spell, and fire-link results are computed from real NASA data. The 7-day prediction model is a design only. Items marked **TODO** still need to be filled in.
+> **Status:** hackathon prototype. Trend, anomaly, dry-spell, and fire-link results are computed from real NASA data. A region-level 7-day machine learning model is implemented; a per-grid-cell spatial version is a design only. Items marked **TODO** still need to be filled in.
 
 ---
 
@@ -31,7 +31,7 @@ Rainfall (GPM IMERG) -> Trend test -> Anomalies and dry spells -> Link to fire d
 | Anomaly | Robust z-score (median and MAD) against same-calendar-month baseline; months with z < -1.5 flagged as unusually dry |
 | Dry spell | Consecutive days below a rainfall threshold (threshold is documented, not tuned to results) |
 | Fire link | Spearman rank correlation between Aug-Oct rainfall / longest dry spell and Aug-Oct FIRMS detections (24 years). Correlation only, no causal claim |
-| Prediction | 7-day probability of satellite-detected fire activity: **design only, not implemented** |
+| Prediction | Region-level 7-day classifier of *high* satellite-detected fire activity (Logistic Regression, Random Forest, XGBoost), chronological and leave-one-year-out evaluation. A per-grid-cell version is a design only |
 
 ## 3. Data
 
@@ -90,13 +90,29 @@ The years with the most Aug-Oct detections were **2015 (8,995), 2006 (6,558), an
 ### Soil moisture (MERRA-2, monthly)
 Annual mean soil wetness has no significant trend (Mann-Kendall p = 0.15, Sen's slope +0.0025 per year, 95% CI -0.0006 to +0.0053). The driest Aug-Oct periods by soil wetness were 2015, 2003, 2019, 2002, 2012, and 2006. Soil wetness and Aug-Oct fire detections are strongly negatively correlated (Spearman rho = -0.88, p < 0.001, n = 24; computed with the confidence >= 50 fire counts). Soil wetness and rainfall are themselves correlated (rho = 0.76), so this is **not independent evidence**: it supports the same dry-conditions picture. Soil moisture here is a model product on a coarse 0.5 x 0.625 degree grid.
 
-## 6. Prediction blueprint (design only)
+## 6. Prediction model (7-day, region level)
 
-- **Blueprint (not implemented):** predict the probability of at least one FIRMS detection in a grid cell during the next 7 days.
-  - Inputs only from information available at prediction time (lagged rainfall, soil moisture, vegetation, temperature) to avoid data leakage.
-  - Chronological train/validation/test split, never random only.
-  - Class imbalance handled with weights and precision-recall metrics; probabilities calibrated.
-  - SHAP used to explain model behavior. It does not prove causation.
+**Task.** Given information available on day *t*, classify whether the next 7 days (t+1 to t+7) have *high* satellite-detected fire activity in the study box. "High" means a 7-day detection count at or above the 85th percentile of the training period (44 detections in the notebook run; the threshold never uses validation or test data).
+
+**Design.**
+- Features use data up to day *t* only: rainfall over the previous 7/30/60/90 days, current consecutive dry days, soil wetness of the last *completed* month (MERRA-2), season (sin/cos of day of year), and recent fire counts.
+- One prediction per week, 2003-2024 (2001-2002 skipped because of FIRMS gaps; windows around the known 2007 and 2009 gaps excluded).
+- Chronological split with a 7-day gap: train 2003-2018 (819 weeks, 125 high), validation 2019-2021 (156 weeks, 17 high), test 2022-2024 (155 weeks, 16 high). The model is selected on validation and the test period is used once.
+- Four feature sets compare what each adds: season only; season + fire history; season + rain + soil; all.
+- Class imbalance handled with class weights; evaluation with PR-AUC (a model with no skill scores the positive rate, about 0.10 to 0.15); probabilities calibrated with Platt scaling on validation.
+
+**Chronological test (2022-2024).** Season only reaches PR-AUC 0.32-0.43. Adding rainfall and soil moisture raises it to 0.79-0.81 (Random Forest / XGBoost, ROC-AUC about 0.98); adding fire history gives 0.82-0.92. The model selected on validation (season + rain + soil, Random Forest) scores precision 0.92, recall 0.69, F1 0.79 at a validation-chosen threshold, and a calibrated Brier score of 0.031 versus 0.095 for always predicting the base rate. Permutation importance is dominated by 60-day, 90-day, and 30-day rainfall (0.15, 0.13, 0.08); soil wetness adds almost nothing beyond rainfall (0.001), consistent with their correlation.
+
+**Leave-one-year-out check (22 held-out years).** Pooled PR-AUC for Random Forest: season only 0.44, season + rain + soil 0.86, all features 0.88 (no-skill level 0.15). The gain from rainfall and soil over season only is +0.40 PR-AUC (95% interval from resampling years: +0.26 to +0.52).
+
+**Limits.**
+- Only a few independent high-activity episodes exist in the validation and test periods, so differences between the top models are not reliable. The leave-one-year-out check is the more trustworthy summary.
+- Leave-one-year-out training can include years after the held-out year, so it measures skill across years, not forecasting.
+- The model recognises persistent dry conditions and has not been tested on predicting the onset of a fire episode.
+- Region-level, area-average inputs: no spatial prediction is claimed. IMERG Final has a latency of months, so operational use would need the Early or Late product.
+- SHAP and permutation importance describe model behaviour, not causes.
+
+**Design only (not implemented).** Per-grid-cell probabilities (about 0.25 degree), a calibrated risk map, MODIS vegetation indices, SHAP explanations, and a Streamlit dashboard.
 
 ## 7. Repository structure
 
@@ -111,7 +127,7 @@ terrawatch-ai/
 
 ## 8. Tools
 
-Python (pandas, NumPy, SciPy, Matplotlib), Kaggle Notebooks, NASA Giovanni, NASA FIRMS, GitHub.
+Python (pandas, NumPy, SciPy, Matplotlib, scikit-learn, XGBoost), Kaggle Notebooks, NASA Giovanni, NASA FIRMS, GitHub.
 
 ## 9. Use of AI
 
