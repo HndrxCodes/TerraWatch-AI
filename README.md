@@ -4,7 +4,7 @@
 
 NASA Space Apps Challenge 2026 (Jakarta) · Challenge: *Be An Earth System Trend Detective!* · Solo project
 
-> **Status:** hackathon prototype. Rainfall analysis is based on real NASA data. Items marked **TODO** are not finished yet and contain no results.
+> **Status:** hackathon prototype. Trend, anomaly, dry-spell, and fire-link results are computed from real NASA data. The 7-day prediction model is a design only. Items marked **TODO** still need to be filled in.
 
 ---
 
@@ -28,9 +28,9 @@ Rainfall (GPM IMERG) -> Trend test -> Anomalies and dry spells -> Link to fire d
 | Step | Method |
 |---|---|
 | Trend | Mann-Kendall test and Sen's slope (annual, seasonal, dry-season series) |
-| Anomaly | Robust z-score (median and MAD) against same-month baseline (**TODO**) |
+| Anomaly | Robust z-score (median and MAD) against same-calendar-month baseline; months with z < -1.5 flagged as unusually dry |
 | Dry spell | Consecutive days below a rainfall threshold (threshold is documented, not tuned to results) |
-| Fire link | Compare yearly/monthly FIRMS detection counts with rainfall anomalies and dry spells (**TODO**) |
+| Fire link | Spearman rank correlation between Aug-Oct rainfall / longest dry spell and Aug-Oct FIRMS detections (24 years). Correlation only, no causal claim |
 | Prediction | 7-day probability of satellite-detected fire activity: **design only, not implemented** |
 
 ## 3. Data
@@ -42,7 +42,7 @@ Rainfall (GPM IMERG) -> Trend test -> Anomalies and dry spells -> Link to fire d
 | Region | Bounding box `102.0, -4.9, 106.2, -1.6` (data box `102.05, -4.85, 106.15, -1.65`) |
 | Period | 2000-01-01 to 2024-12-31 (9,132 days) |
 | Quality checks | No missing days, no duplicates, no fill values (-9999.9) found |
-| NASA FIRMS (**TODO**) | MODIS active fire detections, South Sumatra. Product, version, and confidence filter to be documented |
+| NASA FIRMS | MODIS active fire detections, same bounding box, 2001-2024 (225,736 raw records). Filters: Terra satellite only (Aqua starts mid-2002, so combining both would inflate counts over time), confidence >= 30, type = 0 (presumed vegetation fire), duplicates removed. **TODO:** add exact product name and version from the FIRMS download README |
 
 Reproduce the rainfall series with the Giovanni URL stored in the header of the CSV file.
 
@@ -66,43 +66,61 @@ Mean annual rainfall in the area average is about **2,880 mm/year**. Trend tests
 
 These are preliminary numbers and should be re-run from the notebook in `notebooks/` before final submission. Absence of a trend in the regional average does not rule out local trends.
 
-## 5. Fire link and prediction blueprint
+## 5. Fire link (real data)
 
-- **TODO:** compare FIRMS detection counts with dry-season rainfall and longest dry spell per year.
+After filtering, 54,896 Terra MODIS detections remain (confidence >= 30).
+
+| Relationship (2001-2024, n = 24 years) | Spearman rho | p-value |
+|---|---|---|
+| Aug-Oct rainfall vs Aug-Oct fire detections | -0.92 | < 0.001 |
+| Longest dry spell vs Aug-Oct fire detections | +0.78 | < 0.001 |
+
+The years with the most Aug-Oct detections were **2015 (8,995), 2006 (6,558), and 2019 (4,671)**. These are also among the driest Aug-Oct periods and have the longest dry spells (22, 35, and 34 days).
+
+**Robustness check:** with a stricter confidence filter (>= 50, 45,972 detections) the correlations are unchanged (-0.92 and +0.78) and the top three years are the same.
+
+**Caveats**
+- Correlation, not causation. Peatland condition, land clearing, and fire management also affect fire activity.
+- Rainfall is not the whole story: 2023 had a very dry Aug-Oct but far fewer detections than 2015, 2006, or 2019.
+- Aug-Oct was chosen from the seasonal rainfall cycle, not from the fire data.
+- 24 yearly points, one rectangular area average, and satellite detections rather than all fires.
+
+## 6. Prediction blueprint (design only)
+
 - **Blueprint (not implemented):** predict the probability of at least one FIRMS detection in a grid cell during the next 7 days.
   - Inputs only from information available at prediction time (lagged rainfall, soil moisture, vegetation, temperature) to avoid data leakage.
   - Chronological train/validation/test split, never random only.
   - Class imbalance handled with weights and precision-recall metrics; probabilities calibrated.
   - SHAP used to explain model behavior. It does not prove causation.
 
-## 6. Repository structure
+## 7. Repository structure
 
 ```
 terrawatch-ai/
 ├── README.md
 ├── data/
 │   └── raw/                # Giovanni IMERG CSV; FIRMS CSV (TODO)
-├── notebooks/              # Colab notebook: trend, anomaly, dry spell, fire link (TODO)
+├── notebooks/              # Notebook (Kaggle/Colab): trend, anomaly, dry spell, fire link
 └── docs/                   # slides link, notes
 ```
 
-## 7. Tools
+## 8. Tools
 
-Python (pandas, NumPy, SciPy), Google Colab, NASA Giovanni, NASA FIRMS, GitHub.
+Python (pandas, NumPy, SciPy, Matplotlib), Kaggle Notebooks, NASA Giovanni, NASA FIRMS, GitHub.
 
-## 8. Use of AI
+## 9. Use of AI
 
 AI (Claude, by Anthropic) was used for ideation, project planning, and drafting code and documentation. All data come from NASA sources, and all numbers reported here were computed from the downloaded NASA data. The author reviews and takes responsibility for the content.
 
-## 9. References
+## 10. References
 
 - Huffman, G.J., Stocker, E.F., Bolvin, D.T., Nelkin, E.J., Tan, J. *GPM IMERG Final Precipitation L3 1 day 0.1 degree x 0.1 degree V07 (GPM_3IMERGDF)*. Goddard Earth Sciences Data and Information Services Center (GES DISC). DOI: 10.5067/GPM/IMERGDF/DAY/07 (verify on the GES DISC product page).
 - NASA Giovanni, GES DISC: https://giovanni.gsfc.nasa.gov/giovanni/
-- NASA FIRMS: https://firms.modaps.eosdis.nasa.gov/ (**TODO:** add exact product and citation text used)
+- NASA FIRMS: https://firms.modaps.eosdis.nasa.gov/ (**TODO:** add exact product and citation text from the FIRMS download README)
 - NASA Space Apps Challenge 2026, *Be An Earth System Trend Detective!*: https://www.spaceappschallenge.org/2026/challenges/earth-system-trend-detective/
 - Mann, H.B. (1945), Kendall, M.G. (1975), Sen, P.K. (1968): trend test and slope estimator.
 - Hirsch, R.M., Slack, J.R., Smith, R.A. (1982): seasonal Kendall test.
 
-## 10. Author
+## 11. Author
 
 Solo participant, NASA Space Apps Jakarta 2026.
