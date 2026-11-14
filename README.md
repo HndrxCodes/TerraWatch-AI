@@ -42,7 +42,8 @@ Rainfall (GPM IMERG) -> Trend test -> Anomalies and dry spells -> Link to fire d
 | Region | Bounding box `102.0, -4.9, 106.2, -1.6` (data box `102.05, -4.85, 106.15, -1.65`) |
 | Period | 2000-01-01 to 2024-12-31 (9,132 days) |
 | Quality checks | No missing days, no duplicates, no fill values (-9999.9) found |
-| NASA FIRMS | MODIS active fire detections, same bounding box, 2001-2024 (225,736 raw records). Filters: Terra satellite only (Aqua starts mid-2002, so combining both would inflate counts over time), confidence >= 30, type = 0 (presumed vegetation fire), duplicates removed. **TODO:** add exact product name and version from the FIRMS download README |
+| MERRA-2 soil moisture | `M2TMNXLND` V5.12.4, variable `GWETPROF` (profile soil moisture, dimensionless 0-1), monthly, native grid 0.5 x 0.625 degree, 2000-2024. This is a **model reanalysis**, not a direct satellite observation. Giovanni data box: 102.5 to 105.625 E, -4.5 to -2 N (smaller than the rainfall box because of the coarse grid) |
+| NASA FIRMS | MODIS active fire detections, same bounding box, 2001-2024 (225,736 raw records). Filters: Terra satellite only (Aqua starts mid-2002, so combining both would inflate counts over time), confidence >= 30, type = 0 (presumed vegetation fire), duplicates removed. Product: MODIS Active Fire and Thermal Anomalies, standard-quality archive (MCD14ML) from NASA FIRMS. The `version` field in the downloaded file has two values, `6.03` and `61.03`, both without the `NRT` suffix, so no near-real-time records are included. Per the FIRMS attribute guide the number before the decimal is the processing collection, so the file combines Collection 6 and Collection 6.1 records. |
 
 Reproduce the rainfall series with the Giovanni URL stored in the header of the CSV file.
 
@@ -50,6 +51,7 @@ Reproduce the rainfall series with the Giovanni URL stored in the header of the 
 - Values are an **area average** over the bounding box, which is rectangular and larger than the province. This answers "what", not "where".
 - IMERG resolution is about 10 km. Averaging does not create finer detail.
 - FIRMS records satellite detections, not every fire. No detection does not prove no fire.
+- The FIRMS README lists known MODIS gaps: late June to early July 2001, some data missing in 2002, mid-August 2007, and 21-22 April 2009. 2002 and 2007 overlap the Aug-Oct window, so their detection counts may be underestimated.
 
 ## 4. Preliminary results (rainfall, real data)
 
@@ -85,6 +87,9 @@ The years with the most Aug-Oct detections were **2015 (8,995), 2006 (6,558), an
 - Aug-Oct was chosen from the seasonal rainfall cycle, not from the fire data.
 - 24 yearly points, one rectangular area average, and satellite detections rather than all fires.
 
+### Soil moisture (MERRA-2, monthly)
+Annual mean soil wetness has no significant trend (Mann-Kendall p = 0.15, Sen's slope +0.0025 per year, 95% CI -0.0006 to +0.0053). The driest Aug-Oct periods by soil wetness were 2015, 2003, 2019, 2002, 2012, and 2006. Soil wetness and Aug-Oct fire detections are strongly negatively correlated (Spearman rho = -0.88, p < 0.001, n = 24; computed with the confidence >= 50 fire counts). Soil wetness and rainfall are themselves correlated (rho = 0.76), so this is **not independent evidence**: it supports the same dry-conditions picture. Soil moisture here is a model product on a coarse 0.5 x 0.625 degree grid.
+
 ## 6. Prediction blueprint (design only)
 
 - **Blueprint (not implemented):** predict the probability of at least one FIRMS detection in a grid cell during the next 7 days.
@@ -116,7 +121,8 @@ AI (Claude, by Anthropic) was used for ideation, project planning, and drafting 
 
 - Huffman, G.J., Stocker, E.F., Bolvin, D.T., Nelkin, E.J., Tan, J. *GPM IMERG Final Precipitation L3 1 day 0.1 degree x 0.1 degree V07 (GPM_3IMERGDF)*. Goddard Earth Sciences Data and Information Services Center (GES DISC). DOI: 10.5067/GPM/IMERGDF/DAY/07 (verify on the GES DISC product page).
 - NASA Giovanni, GES DISC: https://giovanni.gsfc.nasa.gov/giovanni/
-- NASA FIRMS: https://firms.modaps.eosdis.nasa.gov/ (**TODO:** add exact product and citation text from the FIRMS download README)
+- NASA FIRMS (LANCE / ESDIS), MODIS Active Fire and Thermal Anomalies (MCD14ML standard archive): https://firms.modaps.eosdis.nasa.gov/ . Cited following the NASA Earthdata data-use policy: https://www.earthdata.nasa.gov/engage/open-data-services-software-policies/data-use-policy
+- Global Modeling and Assimilation Office (GMAO). *MERRA-2 tavgM_2d_lnd_Nx: 2d, Monthly mean, Time-averaged, Single-Level, Assimilation, Land Surface Diagnostics V5.12.4*. GES DISC. DOI: 10.5067/8S35XF81C28F (verify on the GES DISC product page).
 - NASA Space Apps Challenge 2026, *Be An Earth System Trend Detective!*: https://www.spaceappschallenge.org/2026/challenges/earth-system-trend-detective/
 - Mann, H.B. (1945), Kendall, M.G. (1975), Sen, P.K. (1968): trend test and slope estimator.
 - Hirsch, R.M., Slack, J.R., Smith, R.A. (1982): seasonal Kendall test.
