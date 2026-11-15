@@ -1,4 +1,5 @@
 
+
 # 🌍 TerraWatch AI
 ### An Earth System Trend Detective for South Sumatra, Indonesia
 
@@ -10,7 +11,7 @@
 
 ## 📌 Overview
 
-TerraWatch AI is an environmental data science project designed to investigate long-term environmental changes, climate variability, and potential relationships between rainfall, soil moisture, and fire activity across **South Sumatra, Indonesia**.
+TerraWatch AI is an environmental data science project designed to investigate long-term environmental changes, climate variability, and potential relationships between rainfall, soil moisture, and fire activity, initially focusing on **South Sumatra, Indonesia** as its prototype study area.
 
 By integrating satellite-derived Earth observation datasets, statistical analysis, and machine learning, the project explores four fundamental questions:
 
@@ -21,13 +22,15 @@ By integrating satellite-derived Earth observation datasets, statistical analysi
 
 Rather than focusing exclusively on long-term trends, TerraWatch AI also investigates interannual variability, extreme dry spells, and environmental patterns relevant to regional environmental monitoring and early-warning research.
 
+South Sumatra serves as an initial development and testing area, allowing the analytical framework to be developed and evaluated within a defined geographical context. The platform is designed with scalability in mind, with the potential to expand to other regions of Sumatra and eventually across Indonesia.
+
 ## 🔬 Project Overview
 
 | Attribute | Description |
 |---|---|
 | Project | TerraWatch AI |
 | Domain | Environmental Data Science |
-| Study Area | South Sumatra, Indonesia |
+| Study Area | South Sumatra, Indonesia (Initial Prototype) |
 | Temporal Coverage | 2000–2024 (rainfall analysis) |
 | Data Sources | NASA GPM IMERG, MERRA-2, NASA FIRMS |
 | Statistical Methods | Mann-Kendall, Sen's Slope |
@@ -117,7 +120,7 @@ Further analysis investigates soil moisture conditions, fire activity, and the p
 
 ## 📈 Visualization Gallery
 
-The following figures summarize eight major analytical outputs of TerraWatch AI.
+The following figures summarize nine major analytical outputs of TerraWatch AI.
 
 ### 1. Rainfall Trend Analysis
 
@@ -139,21 +142,22 @@ The following figures summarize eight major analytical outputs of TerraWatch AI.
 
 ![Machine Learning Results](results/figures/fig_ml.png)
 
-### 6. Leave-One-Year-Out Evaluation
+### 6. Walk-forward Validation
+
+![Walk-forward Validation](results/figures/fig_walkforward.png)
+
+### 7. Leave-One-Year-Out Evaluation
 
 ![Leave-One-Year-Out Evaluation](results/figures/fig_loyo.png)
 
-### 7. SHAP Feature Importance
+### 8. SHAP Feature Importance
 
 ![SHAP Feature Importance](results/figures/fig_shap_summary.png)
 
-### 8. Provincial Fire Density
+### 9. Provincial Fire Density
 
 ![Provincial Fire Density](results/figures/fig_fire_density_province.png)
 
-### 9.Walk-forward Validation
-
-![Walk-forward Validation](results/figures/fig_walkforward.png)
 ---
 
 ## 📁 Repository Structure
@@ -173,6 +177,7 @@ The following figures summarize eight major analytical outputs of TerraWatch AI.
     │       ├── fig_dryspell.png
     │       ├── fig_fire_link.png
     │       ├── fig_ml.png
+    │       ├── fig_walkforward.png
     │       ├── fig_loyo.png
     │       ├── fig_shap_summary.png
     │       └── fig_fire_density_province.png
@@ -225,7 +230,7 @@ If using Kaggle, attach the required datasets and adjust input paths to the Kagg
 
 TerraWatch AI aims to demonstrate how open Earth observation data, statistical reasoning, and explainable machine learning can be combined to better understand regional environmental dynamics.
 
-The long-term vision is to develop a more comprehensive environmental monitoring and early-warning framework for South Sumatra.
+The initial prototype focuses on South Sumatra, but the long-term vision is to develop a scalable environmental monitoring and early-warning framework that can eventually extend across Sumatra and other regions of Indonesia.
 
 ---
 
