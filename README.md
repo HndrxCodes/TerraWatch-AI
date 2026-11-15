@@ -151,6 +151,9 @@ The following figures summarize eight major analytical outputs of TerraWatch AI.
 
 ![Provincial Fire Density](results/figures/fig_fire_density_province.png)
 
+### 9.Walk-forward Validation
+
+![Walk-forward Validation](results/figures/fig_walkforward.png)
 ---
 
 ## 📁 Repository Structure
