@@ -6,6 +6,8 @@ Benchmarks that a cell-level model must beat:
   - "cell climatology": the cell's own historical frequency of Y=1 in that calendar month (shrunk to the
     regional monthly rate). Any spatial skill must come on top of this, otherwise the model only learned
     where fires usually happen.
+  - "persistence (naive)": predict Y=1 if the cell had any detection in the last 7 days. If a model barely
+    beats this, its skill is mostly "fire now -> fire next week", not early warning.
 """
 import numpy as np
 import pandas as pd
@@ -16,6 +18,7 @@ from sklearn.metrics import average_precision_score, brier_score_loss, roc_auc_s
 from ..config import HORIZON, WF_YEARS
 
 CLIM = "cell climatology (baseline)"
+PERSIST = "persistence (naive)"
 
 
 def rf_model(n_estimators=150, seed=0):
@@ -39,7 +42,7 @@ def walk_forward_cells(D, feature_sets, years=WF_YEARS, horizon=HORIZON, n_estim
     """Returns {name: DataFrame[date, cell_id, year, y, p]} pooled over all test years."""
     D = D.copy()
     D["year"] = D.date.dt.year
-    pooled = {name: [] for name in list(feature_sets) + [CLIM]}
+    pooled = {name: [] for name in list(feature_sets) + [CLIM, PERSIST]}
     for yr in years:
         te = D[D.year == yr]
         if te.empty:
@@ -52,6 +55,7 @@ def walk_forward_cells(D, feature_sets, years=WF_YEARS, horizon=HORIZON, n_estim
             m = rf_model(n_estimators).fit(tr[cols], tr.y)
             pooled[name].append(pd.DataFrame({**base, "p": m.predict_proba(te[cols])[:, 1]}))
         pooled[CLIM].append(pd.DataFrame({**base, "p": climatology_baseline(tr, te)}))
+        pooled[PERSIST].append(pd.DataFrame({**base, "p": (te["log_fire_7d"].values > 0).astype(float)}))
     return {k: pd.concat(v, ignore_index=True) for k, v in pooled.items() if v}
 
 
@@ -93,3 +97,17 @@ def year_bootstrap_gain(a, b, n=200, seed=1):
             continue
         diffs.append(average_precision_score(A.y, A.p) - average_precision_score(B.y, B.p))
     return np.percentile(diffs, [2.5, 50, 97.5])
+
+
+def summarize_onset(pooled, D):
+    """Skill on rows with NO detection in the cell during the last 7 days ("onset" weeks).
+    Persistence cannot help there, so this isolates what the environment adds. Platt is skipped (PR/ROC only)."""
+    quiet = D.loc[D.log_fire_7d == 0, ["date", "cell_id"]].assign(quiet=True)
+    rows = []
+    for name, d in pooled.items():
+        d = d.merge(quiet, on=["date", "cell_id"], how="inner")
+        if d.y.sum() == 0 or d.y.nunique() < 2:
+            continue
+        rows.append({"model": name, "PR-AUC (onset weeks)": average_precision_score(d.y, d.p),
+                     "ROC-AUC (onset weeks)": roc_auc_score(d.y, d.p), "positive rate": d.y.mean(), "rows": len(d)})
+    return pd.DataFrame(rows).round(3)
