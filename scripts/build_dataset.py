@@ -2,7 +2,9 @@
 
 Usage (from the repo root):
   python scripts/build_dataset.py --firms data/raw/firms/<file>.csv --region config/region.geojson \
-         [--regional data/features/regional_features.parquet] [--out data/features/cell_weekly.parquet]
+         [--regional data/features/regional_features.parquet]            # broadcast regional rain/soil (old)
+         [--precip data/processed/cell_precip_daily.parquet --sm data/processed/cell_sm_monthly.parquet]   # per cell
+         [--out data/features/cell_weekly.parquet]
 """
 import argparse, sys
 from pathlib import Path
@@ -12,6 +14,7 @@ import pandas as pd
 from terrawatch.ingestion.firms import load_firms
 from terrawatch.preprocessing.spatial import load_polygons, build_grid
 from terrawatch.features.labels import build_cell_dataset
+from terrawatch.preprocessing.gridded import load_matrix
 
 
 def read_table(path):
@@ -34,6 +37,8 @@ def main():
     ap.add_argument("--firms", required=True)
     ap.add_argument("--region", default="config/region.geojson")
     ap.add_argument("--regional", default=None, help="optional daily regional features exported from the notebook")
+    ap.add_argument("--precip", default=None, help="per-cell daily rain table from aggregate_gridded.py")
+    ap.add_argument("--sm", default=None, help="per-cell monthly soil wetness table from aggregate_gridded.py")
     ap.add_argument("--out", default="data/features/cell_weekly.parquet")
     a = ap.parse_args()
 
@@ -43,7 +48,13 @@ def main():
     print(f"Detections kept: {len(det)} | grid cells kept: {len(grid)} (0.25 deg, >=20% inside province)")
     regional = read_table(a.regional) if a.regional else None
 
-    D = build_cell_dataset(det, grid, spec, regional=regional)
+    precip = load_matrix(a.precip) if a.precip else None
+    sm = load_matrix(a.sm) if a.sm else None
+    if sm is not None:
+        sm.index = pd.PeriodIndex(sm.index, freq="M")
+    if precip is not None:
+        precip = precip[list(grid.cell_id)]               # same cell order as the grid
+    D = build_cell_dataset(det, grid, spec, regional=regional, precip=precip, sm_monthly=sm)
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path("data/processed").mkdir(parents=True, exist_ok=True)
     grid.to_csv("data/processed/grid_cells.csv", index=False)

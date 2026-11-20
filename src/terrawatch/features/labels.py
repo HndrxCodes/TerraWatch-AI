@@ -9,6 +9,7 @@ import pandas as pd
 
 from ..config import (DATA_START, DATA_END, ML_START, HORIZON, STRIDE, GAPS)
 from ..preprocessing.spatial import assign_cells
+from .env import build_env_arrays
 
 SEASON = ["doy_sin", "doy_cos"]
 CELL_STATIC = ["lat", "lon", "frac_inside"]
@@ -55,12 +56,14 @@ def days_since(M, cap=DAYS_SINCE_CAP):
     return out
 
 
-def build_cell_dataset(det, grid, spec, regional=None, data_start=DATA_START, ml_start=ML_START,
-                       end=DATA_END, horizon=HORIZON, stride=STRIDE, gaps=GAPS):
+def build_cell_dataset(det, grid, spec, regional=None, precip=None, sm_monthly=None, data_start=DATA_START,
+                       ml_start=ML_START, end=DATA_END, horizon=HORIZON, stride=STRIDE, gaps=GAPS):
     """Long table: one row per (reference date, cell).
 
     regional: optional DataFrame indexed by date (e.g. notebook X[ENV]); each column is broadcast to all
     cells. It carries no per-cell information, so cell differences then come from fire history and position.
+    precip / sm_monthly: optional GRIDDED rain (daily x cell_id) and soil wetness (monthly x cell_id) tables; they
+    give true per-cell rain_*d, dry_run and sm_prev and take precedence over `regional` columns of the same name.
     """
     days, M = daily_counts(det, grid, spec, data_start, end)
     t0 = days.get_loc(pd.Timestamp(ml_start))
@@ -89,12 +92,20 @@ def build_cell_dataset(det, grid, spec, regional=None, data_start=DATA_START, ml
     out["fut7"] = forward_sum(M, horizon)[t_idx].ravel()          # target window, NEVER a feature
     out["y"] = (out["fut7"] >= 1).astype(int)
 
+    added = []
+    if precip is not None:
+        if list(precip.columns) != list(grid.cell_id):
+            raise ValueError("precip columns must equal grid.cell_id in the same order")
+        for name, A in build_env_arrays(precip, sm_monthly, days).items():
+            out[name] = np.asarray(A)[t_idx].ravel()
+            added.append(name)
+
     if regional is not None:
         reg = regional.reindex(dates)
-        added = []
         for c in reg.columns:
             if c not in out.columns:
                 out[c] = np.repeat(reg[c].values, k)
                 added.append(c)
+    if added:
         out = out.dropna(subset=added).reset_index(drop=True)
     return out

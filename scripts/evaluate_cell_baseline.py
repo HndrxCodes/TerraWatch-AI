@@ -1,4 +1,4 @@
-"""Walk-forward comparison: season only vs cell climatology vs cell history (+ regional env if present).
+"""Walk-forward comparison: season only vs cell climatology vs cell history (+ env if present).
 
 Usage: python scripts/evaluate_cell_baseline.py --data data/features/cell_weekly.parquet
 """
@@ -25,17 +25,17 @@ def main():
     env = [c for c in REGIONAL_ENV if c in D.columns]
     if env:
         sets["no fire history (season + position + env)"] = SEASON + CELL_STATIC + env
-        sets["cell history + regional env"] = SEASON + CELL_STATIC + CELL_HISTORY + env
+        sets["cell history + env"] = SEASON + CELL_STATIC + CELL_HISTORY + env
     else:
-        print("No regional env columns found: run build_dataset.py with --regional to add rain/soil features.")
+        print("No env columns found: run build_dataset.py with --regional to add rain/soil features.")
 
     pooled = walk_forward_cells(D, sets, n_estimators=a.trees)
     print("\nWALK-FORWARD (train on past only). No-skill PR-AUC = positive rate.")
     print(summarize(pooled).to_string(index=False))
     pairs = [("cell history", CLIM), ("cell history", "season only"), ("cell history", PERSIST)]
     if env:
-        pairs += [("cell history + regional env", "cell history"),
-                  ("cell history + regional env", PERSIST),
+        pairs += [("cell history + env", "cell history"),
+                  ("cell history + env", PERSIST),
                   ("no fire history (season + position + env)", CLIM)]
     for new, old in pairs:
         lo, mid, hi = year_bootstrap_gain(pooled[new], pooled[old])

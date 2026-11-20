@@ -18,3 +18,4 @@ STRIDE = 7                             # one prediction per cell per week
 GAPS = [("2007-08-10", "2007-09-15"), ("2009-04-20", "2009-04-23")]
 
 WF_YEARS = list(range(2010, 2025))     # walk-forward test years (notebook cell 15)
+DRY_MM = 1.0                           # notebook cell 1: a day is 'dry' if rain < DRY_MM mm/day
