@@ -38,16 +38,32 @@ def cell_mean_from_pixels(values, lon, lat, grid, spec):
     return mean, np.bincount(cols, minlength=len(grid))
 
 
-def nearest_cell_values(values, lon, lat, grid, max_dist=(0.5, 0.5)):
+def nearest_cell_values(values, lon, lat, grid, max_dist=(0.5, 0.5), fill_missing=True):
     """values (t, n_lat, n_lon) on a COARSE grid -> (t, n_cells) by nearest source-cell center (no interpolation).
-    max_dist = (lat, lon) in degrees: half a source cell. Fails loudly if the downloaded subset does not cover a cell."""
+    max_dist = (lat, lon) in degrees: half a source cell. Fails loudly if the downloaded subset does not cover a cell.
+    MERRA-2 land diagnostics are empty over open water: a coastal cell whose nearest source cell has no data in ANY
+    month takes the nearest source cell that has data (warned, never silent), so the cell is not lost downstream."""
+    import warnings
     lon, lat = np.asarray(lon, float), np.asarray(lat, float)
+    values = np.asarray(values, float)
     dj = np.abs(lat[:, None] - grid.lat.values[None, :])
     di = np.abs(lon[:, None] - grid.lon.values[None, :])
     j, i = dj.argmin(axis=0), di.argmin(axis=0)
     if (dj.min(axis=0) > max_dist[0] + 1e-9).any() or (di.min(axis=0) > max_dist[1] + 1e-9).any():
         raise ValueError("Source subset does not cover every grid cell: download with a larger padding.")
-    return np.asarray(values)[:, j, i]
+    out = values[:, j, i].copy()
+    if fill_missing:
+        has_data = ~np.isnan(values).all(axis=0)                       # (n_lat, n_lon)
+        empty = np.flatnonzero(~has_data[j, i])
+        for c in empty:
+            d = (lat[:, None] - grid.lat.values[c]) ** 2 + (lon[None, :] - grid.lon.values[c]) ** 2
+            d = np.where(has_data, d, np.inf)
+            jj, ii = np.unravel_index(np.argmin(d), d.shape)
+            out[:, c] = values[:, jj, ii]
+        if len(empty):
+            warnings.warn(f"{len(empty)} of {len(grid)} cells had an empty nearest source cell (open water); "
+                          "they use the nearest source cell with data.")
+    return out
 
 
 def save_matrix(df, path):
